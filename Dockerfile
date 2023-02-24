@@ -1,4 +1,4 @@
-FROM debian:8
+FROM ubuntu:22.04
 
 RUN apt-get -qq update && apt-get install -qq -y --no-install-recommends \
     ca-certificates \
@@ -8,29 +8,41 @@ RUN apt-get -qq update && apt-get install -qq -y --no-install-recommends \
     libpq5 \
     mysql-client \
     nginx \
-    python \
-    python-setuptools \
-    python-pip \
-    python-crypto \
-    python-flask \
-    python-pil \
-    python-mysqldb \
+    python3 \
+    python3-dev \
+    libmysqlclient-dev \
+    build-essential \
+    manpages-dev \
+    # python-setuptools \
+    pip \
+    # python-crypto \
+    #Flask \
+    # python-flask \
+    # python-pil \
+    # python-mysqldb \
     unixodbc \
-    uwsgi \
-    uwsgi-plugin-python \
-&& pip install -q natsort
+    uwsgi
+    # uwsgi-plugin-python
 
 RUN curl -s \
-    http://sphinxsearch.com/files/sphinxsearch_2.2.11-release-1~jessie_amd64.deb \
-    -o /tmp/sphinxsearch.deb \
-&& dpkg -i /tmp/sphinxsearch.deb \
-&& rm /tmp/sphinxsearch.deb \
-&& easy_install -q flask-cache \
-&& pip install -q supervisor \
+    http://sphinxsearch.com/files/sphinx-3.5.1-82c60cb-linux-amd64.tar.gz \
+    -o /tmp/sphinxsearch.tar.gz \
+# && dpkg -i /tmp/sphinxsearch.deb \
+# && rm /tmp/sphinxsearch.deb \
+# && easy_install -q flask-cache \
+#&& pip install -q supervisor \
+&& tar -xzf /tmp/sphinxsearch.tar.gz \
+&& cp sphinx-3.5.1/bin/* /usr/bin/ \
+&& cp sphinx-3.5.1/etc/* /etc/ \
 && mkdir -p /var/log/sphinxsearch \
 && mkdir -p /var/log/supervisord
 
 VOLUME ["/data/"]
+
+
+COPY requirements.txt requirements.txt
+RUN pip install -r ./requirements.txt
+
 
 COPY conf/sphinx/*.conf /etc/sphinxsearch/
 COPY conf/nginx/nginx.conf /etc/nginx/sites-available/default
