@@ -266,7 +266,9 @@ def process_search_index(index, query, query_filter, start=0, count=0, field_wei
     if len(field_weights) > 0:
         option += ", field_weights = ({})".format(field_weights)
     # Prepare query for boost
-    query_elements = re.compile("\s*,\s*|\s+").split(query)
+    str_query = query.decode('utf-8') if type(query).__name__ == 'bytes' else query
+
+    query_elements = re.compile("\s*,\s*|\s+").split(str_query)
     select_boost = []
     argsBoost = []
     # Boost whole query (street with spaces)
@@ -515,7 +517,13 @@ def formatResponse(data, code=200):
 # ---------------------------------------------------------
 def modify_query_autocomplete(orig_query):
     """Modify query - add asterisk for each element of query, set original query."""
-    query = '* '.join(re.compile("\s*,\s*|\s+").split(orig_query)) + '*'
+    if type(orig_query).__name__ == 'bytes':
+        decoded_query = orig_query.decode('utf-8')
+    elif type(orig_query).__name__ == 'str':
+        decoded_query = orig_query
+    else:
+        raise ValueError("orig_query bad type: {}".format(type(orig_query).__name__))
+    query = '* '.join(re.compile("\s*,\s*|\s+").split(decoded_query)) + '*'
     query = re.sub(r"\*+", "*", query)
     return query, orig_query
 
@@ -1032,13 +1040,17 @@ Date:   11.07.2017
 """
 
 
-# reverse_search - find the closest place in the data set to the supplied coordinates
-# lon     - float   - the longitude coordinate, in degrees, for the closest place match
-# lat     - float   - the latitude coordinate, in degrees, for the closest place match
-# classes - array   - the array of classes to filter, empty array without filtering
-# debug   - boolean - if true, include diagnostics in the result
-# returns - result, distance tuple
-def reverse_search(lon, lat, classes, debug):
+def reverse_search(lon, lat, classes, debug, limitstr='20'):
+    """
+    reverse_search - find the closest places in the data set to the supplied coordinates
+        - defaults to 20 closest places
+    lon     - float   - the longitude coordinate, in degrees, for the closest place match
+    lat     - float   - the latitude coordinate, in degrees, for the closest place match
+    classes - array   - the array of classes to filter, empty array without filtering
+    debug   - boolean - if true, include diagnostics in the result
+    limit   - int     - number of results to return. default 20
+    returns - result, distance tuple
+    """
     result = {
         'total_found': 0,
         'count': 0,
@@ -1100,8 +1112,8 @@ def reverse_search(lon, lat, classes, debug):
             wherelon.append("lon BETWEEN {} AND {}".format(lon_min, lon_max))
         # latitude condition is the same for all cases
         wherelat = "lat BETWEEN {} AND {}".format(lat_min, lat_max)
-        # limit the result set to the single closest match
-        limit = " ORDER BY distance ASC LIMIT 1"
+        # limit the result set to the closest matches
+        limit = " ORDER BY distance ASC LIMIT {}".format(limitstr)
 
         myresult = {}
         if not classes:
@@ -1113,7 +1125,6 @@ def reverse_search(lon, lat, classes, debug):
                 if cl:
                     sql += " AND class='{}' ".format(cl)
                 sql += limit
-                # Boolean, {'matches': [{'weight': 0, 'id', 'attrs': {}}], 'total_found': 0}
                 status, result_new = get_query_result(cursor, sql, ())
                 if debug:
                     result['debug']['queries'].append(sql)
@@ -1142,18 +1153,19 @@ def reverse_search(lon, lat, classes, debug):
             smallest_distance = distance
 
     result = mergeResultObject(result, myresult)
-    result['count'] = 1
-    result['matches'] = [smallest_row]
+    result['count'] = len(myresult['matches'])
+    result['matches'] = myresult['matches']
     result['start_index'] = 1
     result['status'] = True
-    result['total_found'] = 1
+    result['total_found'] = len(myresult['matches'])
     return result, smallest_distance
 
 
 # ---------------------------------------------------------
+
 @app.route('/r/<lon>/<lat>.js', defaults={'classes': None})
 @app.route('/r/<classes>/<lon>/<lat>.js')
-def reverse_search_url(lon, lat, classes):
+def reverse_search_url(lon, lat, classes, limit=1):
     """REST API for reverse_search."""
     code = 400
     data = {'format': 'json'}
@@ -1186,8 +1198,8 @@ def reverse_search_url(lon, lat, classes):
         filter_classes = []
         if classes:
             # This argument can be list separated by comma
-            filter_classes = classes.encode('utf-8').split(',')
-        result, distance = reverse_search(lon, lat, filter_classes, debug)
+            filter_classes = classes.split(',')
+        result, distance = reverse_search(lon, lat, filter_classes, debug, '20')
         data['result'] = prepareResultJson(result)
         if debug:
             times['process'] = time() - times['start']
