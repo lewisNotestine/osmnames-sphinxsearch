@@ -1,0 +1,9 @@
+cmake
+setuptools
+Flask
+pycrypto
+Pillow
+mysqlclient
+uWSGI
+supervisor
+natsort

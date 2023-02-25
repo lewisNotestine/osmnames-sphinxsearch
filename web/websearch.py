@@ -19,8 +19,7 @@ import sys
 import MySQLdb
 import re
 import natsort
-import rfc822   # Used for parsing RFC822 into datetime
-import email    # Used for formatting TS into RFC822
+import email
 import traceback
 
 
@@ -529,9 +528,10 @@ def modify_query_orig(orig_query):
 def modify_query_remhouse(orig_query):
     """Modify query - remove house number, use and set modified query."""
     # Remove any number from the request
-    query = re.sub(r"\d+([/, ]\d+)?", "", orig_query)
+    decoded_query = orig_query.decode('utf-8')
+    query = re.sub(r"\d+([/, ]\d+)?", "", decoded_query)
     if query == orig_query:
-        return None, orig_query
+        return None, decoded_query
     return query, query
 
 
@@ -548,13 +548,14 @@ def modify_query_splitor(orig_query):
 def modify_query_postcode(orig_query):
     """Modify query - search and extract UK PostCode."""
     # Find UK postcode via regexp
-    q = orig_query.upper()
+    decoded_query = orig_query.decode('utf-8')
+    q = decoded_query.upper()
     prog = re.compile(r"([A-Z0-9]{2,4}) ?([A-Z0-9]{3,3})")
     m = prog.match(q)
     if m:
-        return "{} {}".format(m.group(1), m.group(2)), orig_query
+        return "{} {}".format(m.group(1), m.group(2)), decoded_query
     else:
-        return None, orig_query
+        return None, decoded_query
 
 
 # ---------------------------------------------------------
@@ -600,8 +601,8 @@ def process_query_modifiers(orig_query, index_modifiers, debug_result, times,
                 debug_result['query_succeed'] = []
                 debug_result['index_succeed'] = []
             debug_result['modify'].append(modify.__name__)
-            debug_result['query_succeed'].append(query.decode('utf-8'))
-            debug_result['index_succeed'].append(index.decode('utf-8'))
+            debug_result['query_succeed'].append(query)
+            debug_result['index_succeed'].append(index)
             # Only break, if we have enough matches
             if len(result['matches']) >= result['count']:
                 break
@@ -631,14 +632,15 @@ def search(orig_query, query_filter, autocomplete=False, start=0, count=0,
 
     # 0. Detect pure Lat Lon (2 float numbers)
     floats = re.compile(r"(-?[0-9]+.?[0-9]*) (-?[0-9]+.?[0-9]*)")
-    m = floats.match(orig_query)
+    decoded_query = orig_query.decode('utf-8')
+    m = floats.match(decoded_query)
     lat = lon = None
     if m:
         lat = float(m.group(1))
         lon = float(m.group(2))
     else:
         # Try parsing 50°00'00.0"N 14°00'00.0"E or similar requests
-        query = orig_query
+        query = decoded_query
         query = query.replace('°', ' ')
         query = query.replace('\'', ' ')
         query = query.replace('\"', ' ')
@@ -822,17 +824,11 @@ def has_modified_header(headers):
         if DATA_LAST_MODIFIED != oldLastModified:
             # reload attributes if index changed
             get_attributes_values('ind_name_exact', CHECK_ATTR_FILTER)
-        # pprint([headers, modified, DATA_LAST_MODIFIED, mtime])
-        # pprint([mtime, rfc822.parsedate(modified), mktime(rfc822.parsedate(modified))])
+
         modified_file = datetime.fromtimestamp(mtime)
         modified_file = modified_file.replace(microsecond=0)
-        modified_date = datetime.fromtimestamp(mktime(rfc822.parsedate(modified)))
+        modified_date = datetime.fromtimestamp(mktime(email.utils.parsedate(modified)))
 
-        # pprint([
-        #     'Data: ', modified_file,
-        #     'Header: ', modified_date,
-        #     modified_file <= modified_date,
-        # ])
         if modified_file <= modified_date:
             return True
     return False
