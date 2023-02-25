@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:16.04
 
 RUN apt-get -qq update && apt-get install -qq -y --no-install-recommends \
     ca-certificates \
@@ -14,7 +14,7 @@ RUN apt-get -qq update && apt-get install -qq -y --no-install-recommends \
     build-essential \
     manpages-dev \
     # python-setuptools \
-    pip \
+    # pip \
     # python-crypto \
     #Flask \
     # python-flask \
@@ -24,16 +24,19 @@ RUN apt-get -qq update && apt-get install -qq -y --no-install-recommends \
     uwsgi
     # uwsgi-plugin-python
 
+
+
+RUN echo exit 0 > /usr/bin/policy-rc.d
 RUN curl -s \
-    http://sphinxsearch.com/files/sphinx-3.5.1-82c60cb-linux-amd64.tar.gz \
-    -o /tmp/sphinxsearch.tar.gz \
-# && dpkg -i /tmp/sphinxsearch.deb \
-# && rm /tmp/sphinxsearch.deb \
+    http://sphinxsearch.com/files/sphinxsearch_2.3.2-beta-1~xenial_amd64.deb \
+    -o /tmp/sphinxsearch.deb \
+&& RUNLEVEL=1 dpkg -i /tmp/sphinxsearch.deb \
+&& rm /tmp/sphinxsearch.deb \
 # && easy_install -q flask-cache \
 #&& pip install -q supervisor \
-&& tar -xzf /tmp/sphinxsearch.tar.gz \
-&& cp sphinx-3.5.1/bin/* /usr/bin/ \
-&& cp sphinx-3.5.1/etc/* /etc/ \
+# && tar -xzf /tmp/sphinxsearch.tar.gz \
+# && cp sphinx-3.5.1/bin/* /usr/bin/ \
+# && cp sphinx-3.5.1/etc/* /etc/ \
 && mkdir -p /var/log/sphinxsearch \
 && mkdir -p /var/log/supervisord
 
@@ -41,6 +44,10 @@ VOLUME ["/data/"]
 
 
 COPY requirements.txt requirements.txt
+
+RUN curl "https://bootstrap.pypa.io/pip/3.5/get-pip.py" -o "get-pip.py"
+RUN python3 get-pip.py
+
 RUN pip install -r ./requirements.txt
 
 
