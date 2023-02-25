@@ -1165,7 +1165,7 @@ def reverse_search(lon, lat, classes, debug, limitstr='20'):
 
 @app.route('/r/<lon>/<lat>.js', defaults={'classes': None})
 @app.route('/r/<classes>/<lon>/<lat>.js')
-def reverse_search_url(lon, lat, classes, limit=1):
+def reverse_search_url(lon, lat, classes):
     """REST API for reverse_search."""
     code = 400
     data = {'format': 'json'}
