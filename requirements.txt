@@ -6,3 +6,4 @@ Pillow
 mysqlclient
 uWSGI
 supervisor
+natsort
