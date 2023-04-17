@@ -67,7 +67,7 @@ def get_db_cursor():
     if getenv('WEBSEARCH_SERVER_PORT'):
         port = int(getenv('WEBSEARCH_SERVER_PORT'))
 
-    db = MySQLdb.connect(host=host, port=port, user='root')
+    db = MySQLdb.connect(host=host, port=port, user='root', charset='utf8', use_unicode=True)
     cursor = db.cursor()
     return db, cursor
 
@@ -112,7 +112,8 @@ def get_query_result(cursor, sql, args):
         for row in cursor:
             result['total_found'] = int(row[1])
     except Exception as ex:
-        result['message'] = str(ex)
+        stack = traceback.extract_stack()[:-1]
+        result['message'] = str(ex) + '\n' + ''.join(traceback.format_list(stack))
 
     result['status'] = status
     return status, result
@@ -174,6 +175,7 @@ def get_attributes_values(index, attributes):
 # ---------------------------------------------------------
 def process_search_index(index, query, query_filter, start=0, count=0, field_weights=''):
     """Process query to Sphinx searchd with mysql."""
+
     if count == 0:
         count = SEARCH_DEFAULT_COUNT
     count = min(SEARCH_MAX_COUNT, count)
@@ -192,7 +194,8 @@ def process_search_index(index, query, query_filter, start=0, count=0, field_wei
         db, cursor = get_db_cursor()
     except Exception as ex:
         status = False
-        result['message'] = str(ex)
+        stack = traceback.extract_stack()[:-1]
+        result['message'] = str(ex) + '\n' + ''.join(traceback.format_list(stack))
         result['status'] = status
         return status, result
 
@@ -558,7 +561,7 @@ def modify_query_postcode(orig_query):
     # Find UK postcode via regexp
     decoded_query = orig_query.decode('utf-8')
     q = decoded_query.upper()
-    prog = re.compile(r"([A-Z0-9]{2,4}) ?([A-Z0-9]{3,3})")
+    prog = re.compile(r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z][0-9]{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y][0-9]{1,2})|(([A-Za-z][0-9][A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y][0-9][A-Za-z]?))))\s?[0-9][A-Za-z]{2})")
     m = prog.match(q)
     if m:
         return "{} {}".format(m.group(1), m.group(2)), decoded_query
@@ -570,6 +573,7 @@ def modify_query_postcode(orig_query):
 def process_query_modifiers(orig_query, index_modifiers, debug_result, times,
                             query_filter, start, count, debug=False):
     """Process array of modifiers and return results."""
+
     rc = False
     result = {}
     proc_query = orig_query
@@ -885,7 +889,9 @@ def search_url(country_code, query):
         data['result'] = prepareResultJson(result)
     except:
         traceback.print_exc()
-        data['result'] = {'message': 'Unexpected failure to handle this request. Please, contact sysadmin.'}
+        stack = traceback.extract_stack()[:-1]
+        stacktrace = ''.join(traceback.format_list(stack))
+        data['result'] = {'message': 'Unexpected failure to handle this request. Please, contact sysadmin. \n' + stacktrace }
         code = 500
 
     return formatResponse(data, code)
@@ -1069,7 +1075,8 @@ def reverse_search(lon, lat, classes, debug, limitstr='20'):
         db, cursor = get_db_cursor()
     except Exception as ex:
         status = False
-        result['message'] = str(ex)
+        stack = traceback.extract_stack()[:-1]
+        result['message'] = str(ex) + '\n' + ''.join(traceback.format_list(stack))
         result['status'] = status
         return result, 0
 
@@ -1208,7 +1215,9 @@ def reverse_search_url(lon, lat, classes):
             data['debug_times'] = times
     except:
         traceback.print_exc()
-        data['result'] = {'message': 'Unexpected failure to handle this request. Please, contact sysadmin.'}
+        stack = traceback.extract_stack()[:-1]
+        stacktrace = str(ex) + '\n' + ''.join(traceback.format_list(stack))
+        data['result'] = {'message': 'Unexpected failure to handle this request. Please, contact sysadmin. \n' + stacktrace}
         code = 500
 
     return formatResponse(data, code)
